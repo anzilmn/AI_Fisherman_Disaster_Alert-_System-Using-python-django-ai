@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FisherGuard Pro | AI Marine Intelligence</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg: #040813;
+            --card-bg: rgba(13, 20, 38, 0.7);
+            --border: rgba(255, 255, 255, 0.08);
+            --accent: #00f2ff;
+            --danger: #ff3366;
+            --warning: #ffbe0b;
+            --safe: #00ffaa;
+            --glass: blur(15px);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(0, 242, 255, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(255, 51, 102, 0.05) 0px, transparent 50%);
+            color: #e2e8f0;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        /* --- Layout --- */
+        .wrapper {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* --- Floating Sidebar --- */
+        .sidebar {
+            width: 280px;
+            background: var(--card-bg);
+            backdrop-filter: var(--glass);
+            border-right: 1px solid var(--border);
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .logo-box {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 800;
+            font-size: 1.4rem;
+            color: var(--accent);
+            letter-spacing: -1px;
+        }
+
+        /* --- Premium Status Header --- */
+        .hero-banner {
+            background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
+            border: 1px solid var(--border);
+            border-radius: 30px;
+            padding: 50px;
+            text-align: left;
+            position: relative;
+            margin-bottom: 40px;
+            overflow: hidden;
+        }
+
+        .hero-banner::before {
+            content: '';
+            position: absolute;
+            top: 0; right: 0;
+            width: 300px; height: 300px;
+            background: var(--{{ color }});
+            filter: blur(120px);
+            opacity: 0.15;
+            z-index: 0;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--{{ color }});
+            color: var(--{{ color }});
+            margin-bottom: 20px;
+        }
+
+        .hero-banner h1 {
+            font-size: 3rem;
+            margin: 0;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .hero-banner p {
+            font-size: 1.2rem;
+            opacity: 0.7;
+            margin-top: 15px;
+            max-width: 500px;
+        }
+
+        /* --- Save Button --- */
+        .btn-save {
+            background: var(--accent);
+            color: #040813;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .btn-save:hover { transform: scale(1.05); filter: brightness(1.2); }
+
+        /* --- Saved Hotspots List --- */
+        .saved-spots-list {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .spot-card {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 15px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: 0.3s;
+        }
+        .spot-card:hover { border-color: var(--accent); background: rgba(0, 242, 255, 0.05); }
+        .spot-card b { display: block; color: var(--accent); }
+        .spot-card span { font-size: 0.7rem; opacity: 0.6; }
+
+        /* --- AI Productivity Gauge --- */
+        .gauge-container {
+            background: rgba(255,255,255,0.02);
+            border-radius: 20px;
+            padding: 20px;
+            border: 1px solid var(--border);
+            margin-top: 20px;
+        }
+
+        .gauge-bar {
+            height: 8px;
+            width: 100%;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .gauge-fill {
+            height: 100%;
+            width: {{ fish_score }}%;
+            background: linear-gradient(to right, var(--accent), var(--safe));
+            box-shadow: 0 0 15px var(--safe);
+            transition: width 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* --- Analytics Grid --- */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            backdrop-filter: var(--glass);
+            padding: 30px;
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            transition: all 0.4s ease;
+        }
+
+        .stat-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-8px);
+        }
+
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: var(--accent);
+            margin-bottom: 20px;
+        }
+
+        .stat-label { font-size: 0.85rem; opacity: 0.5; font-weight: 600; text-transform: uppercase; }
+        .stat-value { font-size: 2rem; font-weight: 800; margin-top: 5px; }
+        .stat-unit { font-size: 1rem; opacity: 0.5; }
+
+        /* --- Map Integration --- */
+        .map-wrapper {
+            position: relative;
+            border-radius: 30px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+        }
+
+        #map {
+            height: 500px;
+            width: 100%;
+            background: #aad3df; 
+        }
+
+        .map-overlay {
+            position: absolute;
+            bottom: 20px; right: 20px;
+            background: var(--card-bg);
+            padding: 15px 25px;
+            border-radius: 15px;
+            backdrop-filter: var(--glass);
+            z-index: 1000;
+            border: 1px solid var(--border);
+            font-size: 0.8rem;
+        }
+
+        /* --- Animations --- */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 0; }
+        }
+
+        .live-dot {
+            width: 8px; height: 8px;
+            background: var(--safe);
+            border-radius: 50%;
+            position: relative;
+        }
+        .live-dot::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--safe);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        /* Leaflet Control Styling Fix */
+        .leaflet-control-layers {
+            background: var(--card-bg) !important;
+            backdrop-filter: var(--glass);
+            color: #fff !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 12px !important;
+            padding: 10px !important;
+            font-family: inherit;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+    <aside class="sidebar">
+        <div class="logo-box">
+            <i class="fa-solid fa-anchor"></i>
+            <span>FISHERGUARD PRO</span>
+        </div>
+
+        <div class="sidebar-item">
+            <span class="stat-label">📍 My Hotspots</span>
+            <div class="saved-spots-list" id="saved-spots-list">
+                {% for spot in saved_locations %}
+                <div class="spot-card" onclick="flyToSpot({{ spot.lat }}, {{ spot.lon }})">
+                    <b>{{ spot.name }}</b>
+                    <span>Activity Score: {{ spot.fish_score }}%</span>
+                </div>
+                {% empty %}
+                <p style="font-size: 0.7rem; opacity: 0.4;">No spots saved yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="sidebar-item">
+            <span class="stat-label">AI Productivity</span>
+            <div class="gauge-container">
+                <div style="display: flex; justify-content: space-between; font-weight: 800;">
+                    <span id="ui-fish-score">{{ fish_score }}%</span>
+                    <span style="color: var(--safe);">ACTIVE</span>
+                </div>
+                <div class="gauge-bar"><div id="ui-fish-fill" class="gauge-fill" style="width: {{ fish_score }}%"></div></div>
+                <p id="ui-fish-msg" style="font-size: 0.75rem; margin: 0; opacity: 0.6;">{{ fish_message }}</p>
+            </div>
+        </div>
+
+        <div style="margin-top: auto;">
+            <div class="status-pill" style="border: none; background: rgba(255,255,255,0.05);">
+                <div class="live-dot"></div>
+                <span id="clock" style="color: #fff; font-size: 0.7rem; margin-left: 10px;"></span>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="hero-banner" id="ui-hero-banner">
+            <div class="status-pill" id="ui-status-pill">
+                <i class="fa-solid fa-bolt"></i> Intelligence Status: <span id="ui-risk-level-text">{{ risk_level }}</span>
+            </div>
+            <h1 id="ui-risk-title">{{ risk_level }} TO SAIL</h1>
+            <p id="ui-message-text">{{ message }}</p>
+            
+            <button class="btn-save" onclick="saveSpot()">
+                <i class="fa-solid fa-bookmark"></i> Save Current Location
+            </button>
+        </div>
+
+        <div class="grid">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fa-solid fa-water"></i></div>
+                <span class="stat-label">Current Sea State</span>
+                <div class="stat-value"><span id="ui-wave">{{ wave|floatformat:2 }}</span><span class="stat-unit">m</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="color: var(--warning);"><i class="fa-solid fa-temperature-three-quarters"></i></div>
+                <span class="stat-label">Sea Surface Temp</span>
+                <div class="stat-value"><span id="ui-temp">{{ sea_temp|floatformat:1 }}</span><span class="stat-unit">°C</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="color: var(--safe);"><i class="fa-solid fa-wind"></i></div>
+                <span class="stat-label">Wind Velocity</span>
+                <div class="stat-value"><span id="ui-wind">{{ max_wind|floatformat:1 }}</span><span class="stat-unit">km/h</span></div>
+            </div>
+        </div>
+
+        <div class="map-wrapper">
+            <div id="map"></div>
+            <div class="map-overlay">
+                <i class="fa-solid fa-ship" style="color: var(--accent);"></i> 
+                AI VESSEL TRACKING & WEATHER ACTIVE
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // Premium Clock
+    setInterval(() => {
+        const now = new Date();
+        document.getElementById('clock').innerHTML = now.toLocaleTimeString();
+    }, 1000);
+
+    // Initial Coordinates (Global to keep track)
+    var currentLat = {{ lat }};
+    var currentLon = {{ lon }};
+
+    // Map Configuration
+    var map = L.map('map', { 
+        zoomControl: true,
+        attributionControl: false 
+    }).setView([currentLat, currentLon], 11);
+
+    // 1. Base Tile Layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // 2. Weather Layers
+    var clouds = L.tileLayer('https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=d22f7964783b4e1d7da34086319011cd', { opacity: 0.7 });
+    var rain = L.tileLayer('https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=d22f7964783b4e1d7da34086319011cd', { opacity: 0.7 });
+
+    var overlayMaps = {
+        "<span style='color: #00f2ff'>☁️ Cloud Density</span>": clouds,
+        "<span style='color: #00f2ff'>🌧️ Rain Radar</span>": rain
+    };
+    L.control.layers(null, overlayMaps, { collapsed: false }).addTo(map);
+    clouds.addTo(map);
+
+    // 3. Dynamic Elements
+    var themeColor = '#00f2ff'; 
+    
+    var surveillanceCircle = L.circle([currentLat, currentLon], {
+        color: themeColor,
+        fillColor: themeColor,
+        fillOpacity: 0.2, 
+        weight: 3,        
+        radius: 12000 
+    }).addTo(map);
+
+    var centerMarker = L.marker([currentLat, currentLon]).addTo(map).bindPopup("<b>Intelligence Hub</b>");
+
+    // 4. --- LIVE UPDATE LOGIC ---
+    function updateDashboard(lat, lon) {
+        currentLat = lat;
+        currentLon = lon;
+
+        surveillanceCircle.setLatLng([lat, lon]);
+        centerMarker.setLatLng([lat, lon]);
+
+        fetch(`/?lat=${lat}&lon=${lon}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('ui-risk-level-text').innerText = data.risk_level;
+            document.getElementById('ui-risk-title').innerText = data.risk_level + " TO SAIL";
+            document.getElementById('ui-message-text').innerText = data.message;
+            document.getElementById('ui-wave').innerText = data.wave.toFixed(2);
+            document.getElementById('ui-temp').innerText = data.sea_temp.toFixed(1);
+            document.getElementById('ui-wind').innerText = data.max_wind.toFixed(1);
+            
+            document.getElementById('ui-fish-score').innerText = data.fish_score + "%";
+            document.getElementById('ui-fish-fill').style.width = data.fish_score + "%";
+            document.getElementById('ui-fish-msg').innerText = data.fish_message;
+
+            const colorMap = { 'red': '#ff3366', 'orange': '#ffbe0b', 'green': '#00ffaa', 'grey': '#00f2ff' };
+            const newColor = colorMap[data.color];
+            
+            surveillanceCircle.setStyle({color: newColor, fillColor: newColor});
+            document.getElementById('ui-status-pill').style.borderColor = newColor;
+            document.getElementById('ui-status-pill').style.color = newColor;
+            
+            // Sync hero banner glow
+            document.getElementById('ui-hero-banner').style.setProperty('--{{ color }}', newColor);
+        });
+    }
+
+    map.on('click', function(e) {
+        updateDashboard(e.latlng.lat, e.latlng.lng);
+    });
+
+    // NEW: Save Spot Logic
+    function saveSpot() {
+        let name = prompt("Enter a name for this Hotspot (e.g. Kingfish Zone):");
+        if (!name) return;
+
+        let score = parseInt(document.getElementById('ui-fish-score').innerText);
+
+        fetch('/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': '{{ csrf_token }}' // Django security
+            },
+            body: JSON.stringify({
+                name: name,
+                lat: currentLat,
+                lon: currentLon,
+                fish_score: score
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.status === 'Success') {
+                alert("📍 Hotspot Saved!");
+                location.reload(); // Refresh sidebar
+            }
+        });
+    }
+
+    // NEW: Fly to Spot Logic
+    function flyToSpot(lat, lon) {
+        map.flyTo([lat, lon], 12);
+        updateDashboard(lat, lon);
+    }
+
+    // 5. --- Vessel Tracker Simulation ---
+    var vessels = [
+        { id: 1, name: "Sea Scout Alpha", pos: [9.95, 76.15] },
+        { id: 2, name: "Fisher-King 07", pos: [9.90, 76.20] },
+        { id: 3, name: "Coast Guard-44", pos: [10.00, 76.22] }
+    ];
+
+    var vesselMarkers = {};
+    vessels.forEach(v => {
+        vesselMarkers[v.id] = L.marker(v.pos, {
+            icon: L.divIcon({
+                className: 'vessel-icon',
+                html: `<i class="fa-solid fa-ship" style="color: #fff; font-size: 14px; text-shadow: 0 0 10px #00f2ff;"></i>`,
+                iconSize: [20, 20]
+            })
+        }).addTo(map).bindTooltip(v.name);
+    });
+
+    setInterval(() => {
+        vessels.forEach(v => {
+            v.pos[0] += (Math.random() - 0.5) * 0.001;
+            v.pos[1] += (Math.random() - 0.5) * 0.001;
+            v.vesselMarkers && vesselMarkers[v.id].setLatLng(v.pos);
+        });
+    }, 3000);
+
+</script>
+
+</body>
+</html>
